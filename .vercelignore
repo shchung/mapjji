@@ -1,0 +1,22 @@
+# Vercel deployment ignore file
+
+# Development
+.sisyphus/
+docs/
+scripts/
+
+# Git
+.git/
+.gitignore
+
+# Environment (설정은 Vercel Dashboard에서)
+.env.local
+.env*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
