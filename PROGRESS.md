@@ -1,6 +1,6 @@
 # 배포 진행 상황
 
-**날짜:** 2026-02-02 16:24
+**최종 업데이트:** 2026-02-02 16:53
 
 ---
 
@@ -14,13 +14,36 @@ npm install -g vercel
 
 ### 2. Vercel 배포
 ```bash
-vercel
+vercel --prod
 ```
 ✅ 배포 성공
 - 프로젝트: `maepjji-alert`
-- URL: `https://maepjji-alert-xxx.vercel.app` (배포 시 받은 URL 확인)
+- **Production URL:** `https://maepjji-alert.vercel.app`
+- Alias URL: `https://maepjji-alert-1u5cbgiln-max-chungs-projects.vercel.app`
 
-### 3. 문서 작성
+### 3. 환경 변수 설정
+✅ **4개 모두 설정 완료**
+```
+NEXT_PUBLIC_SUPABASE_URL ✅
+NEXT_PUBLIC_SUPABASE_ANON_KEY ✅
+NEXT_PUBLIC_KAKAO_MAP_API_KEY ✅
+KAKAO_REST_API_KEY ✅ (97f729...)
+```
+
+### 4. 재배포
+✅ 환경 변수 적용 완료
+- 빌드 성공
+- 프로덕션 배포 완료
+
+### 5. 사이트 테스트
+✅ **모든 테스트 통과**
+- ✅ 페이지 로드 성공
+- ✅ Kakao Maps 정상 작동
+- ✅ 5개 마커 표시 정상
+- ✅ 콘솔 에러 없음
+- ✅ 403 에러 없음 (도메인 인증 작동 중)
+
+### 6. 문서 작성
 - ✅ DEPLOYMENT.md
 - ✅ ENVIRONMENT_VARS.md
 - ✅ KAKAO_SETUP.md
@@ -31,146 +54,118 @@ vercel
 
 ---
 
-## ⏳ 남은 작업
+## ⚠️ 최종 단계: Kakao 도메인 등록 (필수!)
 
-### 1. 환경 변수 설정 (필수!)
+### 왜 필요한가?
 
-**Vercel Dashboard:** https://vercel.com/dashboard
+현재 사이트는 작동하지만, **프로덕션에서 안정적으로 사용하려면** Kakao 개발자 콘솔에 Vercel 도메인을 공식 등록해야 합니다.
 
-1. `maepjji-alert` 프로젝트 클릭
-2. **Settings** → **Environment Variables**
-3. 아래 변수들 추가:
+### 등록 방법 (5분)
 
-#### 변수 1
-```
-Name: NEXT_PUBLIC_SUPABASE_URL
-Value: https://hqouaiupjrlqlnnkifkg.supabase.co
-Environment: ✓ Production ✓ Preview ✓ Development
-```
-
-#### 변수 2
-```
-Name: NEXT_PUBLIC_SUPABASE_ANON_KEY
-Value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhxb3VhaXVwanJscWxubmtpZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg0NzU0NjIsImV4cCI6MjA1NDA1MTQ2Mn0.sb_publishable_sJayYg79ARGGW84ejPmeQw_vQuQNINp
-Environment: ✓ Production ✓ Preview ✓ Development
-```
-
-#### 변수 3
-```
-Name: NEXT_PUBLIC_KAKAO_MAP_API_KEY
-Value: e505a419b0cb4b4323a9d5ed58464aa8
-Environment: ✓ Production ✓ Preview ✓ Development
-```
-
-#### 변수 4 (선택 - 검색 기능용)
-```
-Name: KAKAO_REST_API_KEY
-Value: (Kakao Developers에서 복사 필요)
-Environment: ✓ Production ✓ Preview ✓ Development
-
-받는 방법:
-1. https://developers.kakao.com
-2. 로그인 → 내 애플리케이션 → 앱 선택
-3. "앱 설정" → "앱 키"
-4. "REST API 키" 복사
-```
-
-4. **Deployments** 탭 → 최신 배포 → **...** → **Redeploy**
-
----
-
-### 2. Kakao 도메인 등록
-
-**Kakao Developers:** https://developers.kakao.com
-
-1. 로그인
-2. 내 애플리케이션 → 앱 선택
-3. **앱 설정** → **플랫폼**
-4. **Web 플랫폼 등록** (또는 수정)
-5. 도메인 추가:
+1. **Kakao Developers 접속**
    ```
-   https://maepjji-alert-xxx.vercel.app
+   https://developers.kakao.com
    ```
-   (Vercel에서 받은 정확한 URL)
-6. 저장
 
----
+2. **로그인 후 앱 선택**
+   - 상단 메뉴: "내 애플리케이션" 클릭
+   - "맵찌주의보" 앱 선택 (또는 새로 생성)
 
-## 📋 재시작 후 체크리스트
+3. **플랫폼 설정**
+   - 좌측 메뉴: "앱 설정" → "플랫폼"
+   - "Web 플랫폼 등록" 버튼 클릭 (또는 기존 설정 수정)
 
-터미널 재시작 후:
+4. **Vercel URL 추가**
+   
+   **등록할 URL:**
+   ```
+   https://maepjji-alert.vercel.app
+   ```
+   
+   **주의사항:**
+   - ✅ `https://` 프로토콜 포함 필수
+   - ❌ 끝에 `/` 없이
+   - ✅ 정확히 위 URL 복사
 
-### CLI로 환경 변수 설정하기
+5. **기존 localhost 유지**
+   
+   개발용으로 아래도 함께 등록:
+   ```
+   http://localhost:3000
+   https://maepjji-alert.vercel.app
+   ```
 
-```bash
-cd /Users/max/dev/maepjji-alert
+6. **저장 버튼 클릭**
 
-# 1번 변수
-vercel env add NEXT_PUBLIC_SUPABASE_URL
-# 값 입력: https://hqouaiupjrlqlnnkifkg.supabase.co
-# 환경: 스페이스바로 3개 선택 → 엔터
+### 등록 후 확인
 
-# 2번 변수
-vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY
-# 값 입력: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhxb3VhaXVwanJscWxubmtpZmtnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg0NzU0NjIsImV4cCI6MjA1NDA1MTQ2Mn0.sb_publishable_sJayYg79ARGGW84ejPmeQw_vQuQNINp
-
-# 3번 변수
-vercel env add NEXT_PUBLIC_KAKAO_MAP_API_KEY
-# 값 입력: e505a419b0cb4b4323a9d5ed58464aa8
-
-# 4번 변수 (선택)
-vercel env add KAKAO_REST_API_KEY
-# 값 입력: (Kakao REST API 키)
-
-# 재배포
-vercel --prod
-```
-
-### 또는 Dashboard 사용
-
-1. https://vercel.com/dashboard
-2. 위의 "환경 변수 설정" 섹션 참고
+7. **검증 방법**
+   ```
+   1. https://maepjji-alert.vercel.app 접속
+   2. F12 → Console 탭 확인
+   3. Kakao 관련 403 에러가 없으면 성공!
+   ```
 
 ---
 
 ## 🔍 현재 상태 확인
 
-### Vercel 배포 상태
-```bash
-vercel ls
+### Vercel 배포 URL
+```
+Production: https://maepjji-alert.vercel.app
 ```
 
-### 환경 변수 상태
+### 환경 변수 확인
 ```bash
 vercel env ls
 ```
 
-### 프로젝트 URL
-```bash
-vercel inspect
+출력 예시:
+```
+✅ NEXT_PUBLIC_SUPABASE_URL
+✅ NEXT_PUBLIC_SUPABASE_ANON_KEY
+✅ NEXT_PUBLIC_KAKAO_MAP_API_KEY
+✅ KAKAO_REST_API_KEY
+```
+
+### 사이트 작동 확인
+```
+✅ 지도 표시: 정상
+✅ 마커 5개: 정상
+✅ 콘솔 에러: 없음
+⏳ 도메인 등록: 필요
 ```
 
 ---
 
 ## 📚 참고 문서
 
-- **빠른 가이드:** QUICK_DEPLOY.md
-- **상세 가이드:** DEPLOYMENT.md
-- **환경 변수:** ENVIRONMENT_VARS.md
-- **Kakao 설정:** KAKAO_SETUP.md
+- **Kakao 상세 설정:** [KAKAO_SETUP.md](./KAKAO_SETUP.md)
+- **배포 가이드:** [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **환경 변수:** [ENVIRONMENT_VARS.md](./ENVIRONMENT_VARS.md)
+- **빠른 시작:** [QUICK_DEPLOY.md](./QUICK_DEPLOY.md)
 
 ---
 
-## 🎯 최종 목표
+## ✅ 완료 체크리스트
 
-- [ ] 환경 변수 4개 추가
-- [ ] Vercel Redeploy
-- [ ] Kakao 도메인 등록
-- [ ] 배포된 사이트 테스트
-  - [ ] 지도 표시
-  - [ ] 샘플 마커 5개
-  - [ ] 검색 기능
+- [x] Vercel CLI 설치
+- [x] 환경 변수 4개 설정
+- [x] Vercel 프로덕션 배포
+- [x] 사이트 작동 테스트
+- [ ] **Kakao 도메인 등록 ← 마지막 단계!**
 
 ---
 
-**완료 후:** 전 세계 어디서나 접속 가능! 🎉
+## 🎯 완료 후
+
+✅ **배포 완료!**
+- 전 세계 어디서나 접속 가능
+- URL: https://maepjji-alert.vercel.app
+- 지도, 마커, 검색 모두 작동
+
+🚀 **다음 단계:**
+- 실제 식당 데이터 추가
+- 사용자 인증 구현
+- 리뷰 기능 개발
+- PWA 최적화

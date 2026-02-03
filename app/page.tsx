@@ -59,7 +59,6 @@ export default function Home() {
   const [viewportRestaurants, setViewportRestaurants] = useState<SearchResult[]>([])
   const [disambiguationCandidates, setDisambiguationCandidates] = useState<SearchResult[]>([])
   const [disambiguationPosition, setDisambiguationPosition] = useState<{ x: number; y: number } | null>(null)
-  const [showOnlyWithReviews, setShowOnlyWithReviews] = useState(false)
   const [isLoadingReviews, setIsLoadingReviews] = useState(false)
 
   const searchMarkersRef = useRef<KakaoCustomOverlay[]>([])
@@ -398,13 +397,9 @@ export default function Home() {
     (results: SearchResult[], map: KakaoMapInstance) => {
       if (!window.kakao?.maps) return
 
-      const filteredResults = showOnlyWithReviews
-        ? results.filter((r) => r.review_count && r.review_count > 0)
-        : results
+      console.log(`🔷 [ViewportMarkers] Creating ${results.length} transparent markers`)
 
-      console.log(`🔷 [ViewportMarkers] Creating ${filteredResults.length} transparent markers (filtered from ${results.length})`)
-
-      filteredResults.forEach((place) => {
+      results.forEach((place) => {
         const markerContent = document.createElement('div')
         markerContent.style.cursor = 'pointer'
         markerContent.style.pointerEvents = 'auto'
@@ -437,22 +432,18 @@ export default function Home() {
         })
       })
 
-      console.log(`✅ [ViewportMarkers] Successfully created ${filteredResults.length} transparent markers`)
+      console.log(`✅ [ViewportMarkers] Successfully created ${results.length} transparent markers`)
     },
-    [showOnlyWithReviews, handleMarkerClick]
+    [handleMarkerClick]
   )
 
   const createSearchMarkers = useCallback(
     (results: SearchResult[], map: KakaoMapInstance) => {
       if (!window.kakao?.maps) return
 
-      const filteredResults = showOnlyWithReviews
-        ? results.filter((r) => r.review_count && r.review_count > 0)
-        : results
+      console.log(`🏷️ [CreateMarkers] Creating ${results.length} markers`)
 
-      console.log(`🏷️ [CreateMarkers] Creating ${filteredResults.length} markers (filtered from ${results.length})`)
-
-      filteredResults.forEach((place) => {
+      results.forEach((place) => {
         const hasReviews = place.review_count && place.review_count > 0
         const avgLevel = place.avg_spice_level || 0
         const bgColor = hasReviews
@@ -503,9 +494,9 @@ export default function Home() {
         })
       })
 
-      console.log(`✅ [CreateMarkers] Successfully created ${filteredResults.length} markers`)
+      console.log(`✅ [CreateMarkers] Successfully created ${results.length} markers`)
     },
-    [showOnlyWithReviews, handleMarkerClick]
+    [handleMarkerClick]
   )
 
   const performSearch = useCallback(
@@ -575,21 +566,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedQuery])
 
-  useEffect(() => {
-    console.log('🔄 [FilterEffect] Triggered - showOnlyWithReviews:', showOnlyWithReviews)
-    if (!mapInstance) return
 
-    if (searchResults.length > 0) {
-      clearSearchMarkers()
-      createSearchMarkers(searchResults, mapInstance)
-    }
-
-    if (viewportRestaurants.length > 0) {
-      clearViewportMarkers()
-      createViewportMarkers(viewportRestaurants, mapInstance)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showOnlyWithReviews])
 
   const handleBoundsChanged = useCallback(
     async (bounds: { sw: { lat: number; lng: number }; ne: { lat: number; lng: number } }) => {
@@ -667,7 +644,7 @@ export default function Home() {
 
           console.log(`📍 [MapClick] Found ${data.places.length} nearby restaurants`)
 
-          const places: SearchResult[] = data.places.map((place: KakaoPlace) => ({
+          let places: SearchResult[] = data.places.map((place: KakaoPlace) => ({
             ...place,
             lat: parseFloat(place.y),
             lng: parseFloat(place.x),
@@ -677,13 +654,18 @@ export default function Home() {
             return distA - distB
           })
 
+          const enrichedPlaces = await Promise.all(
+            places.map((place) => enrichPlaceWithDbData(place))
+          )
+
+          places = enrichedPlaces
+
           if (showMenu && places.length > 1) {
             console.log(`🔍 [MapClick] Showing disambiguation menu with ${places.length} options (sorted by distance)`)
             setDisambiguationCandidates(places)
           } else {
             console.log(`✅ [MapClick] Auto-selecting nearest: ${places[0].place_name} (${places[0].distance}m away)`)
-            const enrichedPlace = await enrichPlaceWithDbData(places[0])
-            handleMarkerClick(enrichedPlace)
+            handleMarkerClick(places[0])
           }
         } catch (error) {
           console.error('❌ [MapClick] Error:', error)
@@ -718,10 +700,9 @@ export default function Home() {
   const handleDisambiguationSelect = useCallback(
     async (restaurant: SearchResult) => {
       setDisambiguationCandidates([])
-      const enrichedPlace = await enrichPlaceWithDbData(restaurant)
-      handleMarkerClick(enrichedPlace)
+      handleMarkerClick(restaurant)
     },
-    [enrichPlaceWithDbData, handleMarkerClick]
+    [handleMarkerClick]
   )
 
   const getSpiceLevelColor = (level: number | null | undefined) => {
@@ -869,29 +850,7 @@ export default function Home() {
           </div>
         </header>
 
-        {!isSearchOpen && (
-          <div className="absolute right-4 top-24 z-10">
-            <button
-              type="button"
-              onClick={(e) => {
-                console.log('🔍 [Filter] Button clicked, toggling filter:', !showOnlyWithReviews)
-                e.stopPropagation()
-                setShowOnlyWithReviews(!showOnlyWithReviews)
-              }}
-              className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium shadow-lg transition-all backdrop-blur-xl ${
-                showOnlyWithReviews
-                  ? 'bg-orange-500/90 text-white ring-2 ring-orange-400/50'
-                  : 'bg-zinc-900/90 text-zinc-300 hover:bg-zinc-800/90'
-              }`}
-              title={showOnlyWithReviews ? '전체 식당 보기' : '리뷰 있는 식당만 보기'}
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z" />
-              </svg>
-              <span>{showOnlyWithReviews ? '전체 보기' : '리뷰 있음'}</span>
-            </button>
-          </div>
-        )}
+
 
         {searchResults.length > 0 && (
           <div className="absolute right-4 top-24 z-10 w-80 max-h-[calc(100dvh-160px)] overflow-y-auto rounded-2xl border border-zinc-800/50 bg-zinc-900/95 shadow-2xl shadow-black/40 backdrop-blur-xl sm:right-6 sm:top-28">
