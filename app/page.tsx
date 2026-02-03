@@ -615,13 +615,40 @@ export default function Home() {
         const latlng = mouseEvent.latLng
         const clickLat = latlng.getLat()
         const clickLng = latlng.getLng()
+        const zoomLevel = map.getLevel()
 
-        console.log('🖱️ [MapClick] Clicked at:', clickLat, clickLng)
+        let searchRadius: number
+        let showMenu: boolean
+
+        if (zoomLevel === 1) {
+          searchRadius = 10
+          showMenu = true
+        } else if (zoomLevel === 2) {
+          searchRadius = 20
+          showMenu = true
+        } else if (zoomLevel === 3) {
+          searchRadius = 40
+          showMenu = true
+        } else if (zoomLevel === 4) {
+          searchRadius = 80
+          showMenu = true
+        } else if (zoomLevel <= 6) {
+          searchRadius = 150
+          showMenu = false
+        } else if (zoomLevel <= 8) {
+          searchRadius = 300
+          showMenu = false
+        } else {
+          searchRadius = 500
+          showMenu = false
+        }
+
+        console.log('🖱️ [MapClick] Clicked at:', clickLat, clickLng, `| Zoom: ${zoomLevel} | Radius: ${searchRadius}m | Menu: ${showMenu}`)
         console.log('🔍 [MapClick] Searching nearby restaurants...')
 
         try {
           const response = await fetch(
-            `/api/restaurants/nearby?x=${clickLng}&y=${clickLat}&radius=100`
+            `/api/restaurants/nearby?x=${clickLng}&y=${clickLat}&radius=${searchRadius}`
           )
 
           if (!response.ok) {
@@ -639,24 +666,32 @@ export default function Home() {
           }
 
           console.log(`📍 [MapClick] Found ${data.places.length} nearby restaurants`)
-          
-          const nearestPlace: SearchResult = {
-            ...data.places[0],
-            lat: parseFloat(data.places[0].y),
-            lng: parseFloat(data.places[0].x),
+
+          const places: SearchResult[] = data.places.map((place: KakaoPlace) => ({
+            ...place,
+            lat: parseFloat(place.y),
+            lng: parseFloat(place.x),
+          })).sort((a: SearchResult, b: SearchResult) => {
+            const distA = parseFloat(a.distance || '0')
+            const distB = parseFloat(b.distance || '0')
+            return distA - distB
+          })
+
+          if (showMenu && places.length > 1) {
+            console.log(`🔍 [MapClick] Showing disambiguation menu with ${places.length} options (sorted by distance)`)
+            setDisambiguationCandidates(places)
+          } else {
+            console.log(`✅ [MapClick] Auto-selecting nearest: ${places[0].place_name} (${places[0].distance}m away)`)
+            const enrichedPlace = await enrichPlaceWithDbData(places[0])
+            handleMarkerClick(enrichedPlace)
           }
-
-          console.log(`✅ [MapClick] Nearest restaurant: ${nearestPlace.place_name} (${nearestPlace.distance}m away)`)
-
-          const enrichedPlace = await enrichPlaceWithDbData(nearestPlace)
-          handleMarkerClick(enrichedPlace)
         } catch (error) {
           console.error('❌ [MapClick] Error:', error)
           showToast('오류가 발생했습니다', 'error')
         }
       })
     },
-    [fetchRestaurantsInBounds, createViewportMarkers, handleMarkerClick]
+    [enrichPlaceWithDbData, handleMarkerClick, showToast]
   )
 
   const handleResultClick = useCallback(
@@ -683,10 +718,10 @@ export default function Home() {
   const handleDisambiguationSelect = useCallback(
     async (restaurant: SearchResult) => {
       setDisambiguationCandidates([])
-      setDisambiguationPosition(null)
-      await handleMarkerClick(restaurant)
+      const enrichedPlace = await enrichPlaceWithDbData(restaurant)
+      handleMarkerClick(enrichedPlace)
     },
-    [handleMarkerClick]
+    [enrichPlaceWithDbData, handleMarkerClick]
   )
 
   const getSpiceLevelColor = (level: number | null | undefined) => {

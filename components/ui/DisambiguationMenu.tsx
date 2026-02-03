@@ -6,6 +6,7 @@ import type { KakaoPlace } from '@/app/api/search/route'
 interface SearchResult extends KakaoPlace {
   lat: number
   lng: number
+  distance?: string
 }
 
 interface DisambiguationMenuProps {
@@ -58,9 +59,16 @@ export function DisambiguationMenu({ candidates, onSelect, onClose }: Disambigua
                     <h4 className="truncate text-sm font-semibold text-zinc-100">
                       {restaurant.place_name}
                     </h4>
-                    <p className="mt-0.5 truncate text-xs text-zinc-500">
-                      {restaurant.road_address_name || restaurant.address_name}
-                    </p>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      {restaurant.distance && (
+                        <span className="text-xs font-medium text-blue-400">
+                          {restaurant.distance}m
+                        </span>
+                      )}
+                      <span className="truncate text-xs text-zinc-500">
+                        {restaurant.road_address_name || restaurant.address_name}
+                      </span>
+                    </div>
                     {restaurant.category_name && (
                       <p className="mt-1 text-xs text-orange-400">
                         {restaurant.category_name.split(' > ').slice(-1)[0]}
