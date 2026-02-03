@@ -8,6 +8,7 @@ interface KakaoMapProps {
   level?: number
   className?: string
   onMapReady?: (map: KakaoMapInstance) => void
+  onBoundsChanged?: (bounds: { sw: { lat: number; lng: number }; ne: { lat: number; lng: number } }) => void
 }
 
 export function KakaoMap({
@@ -15,6 +16,7 @@ export function KakaoMap({
   level = 3,
   className = '',
   onMapReady,
+  onBoundsChanged,
 }: KakaoMapProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<KakaoMapInstance | null>(null)
@@ -43,11 +45,38 @@ export function KakaoMap({
       isInitializedRef.current = true
 
       console.log('[KakaoMap] Map initialized successfully!')
+      
       onMapReady?.(map)
     } catch (err) {
       console.error('[KakaoMap] Map initialization error:', err)
     }
   }, [state, center.lat, center.lng, level, onMapReady])
+
+  useEffect(() => {
+    if (!mapInstanceRef.current || !isInitializedRef.current || !onBoundsChanged) return
+
+    console.log('[KakaoMap] Registering idle event listener')
+
+    const handleIdle = () => {
+      console.log('[KakaoMap] 🔔 idle event fired!')
+      const bounds = mapInstanceRef.current!.getBounds()
+      const sw = bounds.getSouthWest()
+      const ne = bounds.getNorthEast()
+      onBoundsChanged({
+        sw: { lat: sw.getLat(), lng: sw.getLng() },
+        ne: { lat: ne.getLat(), lng: ne.getLng() },
+      })
+    }
+
+    window.kakao.maps.event.addListener(mapInstanceRef.current, 'idle', handleIdle)
+
+    return () => {
+      console.log('[KakaoMap] Cleaning up idle listener')
+      if (mapInstanceRef.current) {
+        window.kakao.maps.event.removeListener(mapInstanceRef.current, 'idle', handleIdle)
+      }
+    }
+  }, [onBoundsChanged])
 
   useEffect(() => {
     if (!mapInstanceRef.current || !isInitializedRef.current) return
