@@ -9,6 +9,7 @@ import { BottomSheet } from '@/components/ui/BottomSheet'
 import { SpiceLevelForm } from '@/components/ui/SpiceLevelForm'
 import { ReviewCard } from '@/components/ui/ReviewCard'
 import { DisambiguationMenu } from '@/components/ui/DisambiguationMenu'
+import { MapInstructionHint } from '@/components/ui/MapInstructionHint'
 import { AuthModal } from '@/components/auth/AuthModal'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { useToast } from '@/components/ui/Toast'
@@ -60,6 +61,7 @@ export default function Home() {
   const [disambiguationCandidates, setDisambiguationCandidates] = useState<SearchResult[]>([])
   const [disambiguationPosition, setDisambiguationPosition] = useState<{ x: number; y: number } | null>(null)
   const [isLoadingReviews, setIsLoadingReviews] = useState(false)
+  const [isLoadingNearby, setIsLoadingNearby] = useState(false)
 
   const searchMarkersRef = useRef<KakaoCustomOverlay[]>([])
   const viewportMarkersRef = useRef<KakaoCustomOverlay[]>([])
@@ -514,8 +516,14 @@ export default function Home() {
         const response = await fetch(`/api/search?query=${encodeURIComponent(query)}`)
 
         if (!response.ok) {
-          const errorData = await response.json()
-          throw new Error(errorData.error || 'Search failed')
+          const errorMessage = response.status === 429
+            ? 'API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요'
+            : response.status === 500
+              ? '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요'
+              : response.status === 503
+                ? '서비스를 일시적으로 사용할 수 없습니다'
+                : '검색에 실패했습니다'
+          throw new Error(errorMessage)
         }
 
         const data = await response.json()
@@ -543,7 +551,12 @@ export default function Home() {
         }
       } catch (error) {
         console.error('[Search] Error:', error)
-        setSearchError(error instanceof Error ? error.message : 'Search failed')
+        const errorMessage = error instanceof TypeError && error.message.includes('fetch')
+          ? '네트워크 연결을 확인해주세요'
+          : error instanceof Error
+            ? error.message
+            : '검색에 실패했습니다. 다시 시도해주세요'
+        setSearchError(errorMessage)
         setSearchResults([])
       } finally {
         setIsSearching(false)
@@ -588,6 +601,13 @@ export default function Home() {
         ne: { lat: ne.getLat(), lng: ne.getLng() },
       }
 
+      console.log('🔍 [MapReady] Fetching initial viewport restaurants with grid search...')
+      const initialRestaurants = await fetchRestaurantsInBounds(initialBounds)
+      console.log(`✅ [MapReady] Fetched ${initialRestaurants.length} restaurants`)
+      setViewportRestaurants(initialRestaurants)
+      clearViewportMarkers()
+      createViewportMarkers(initialRestaurants, map)
+
       window.kakao.maps.event.addListener(map, 'click', async (mouseEvent: any) => {
         const latlng = mouseEvent.latLng
         const clickLat = latlng.getLat()
@@ -623,6 +643,7 @@ export default function Home() {
         console.log('🖱️ [MapClick] Clicked at:', clickLat, clickLng, `| Zoom: ${zoomLevel} | Radius: ${searchRadius}m | Menu: ${showMenu}`)
         console.log('🔍 [MapClick] Searching nearby restaurants...')
 
+        setIsLoadingNearby(true)
         try {
           const response = await fetch(
             `/api/restaurants/nearby?x=${clickLng}&y=${clickLat}&radius=${searchRadius}`
@@ -630,7 +651,15 @@ export default function Home() {
 
           if (!response.ok) {
             console.error('❌ [MapClick] API error:', response.status)
-            showToast('식당 정보를 불러올 수 없습니다', 'error')
+            const errorMessage = response.status === 429
+              ? 'API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요'
+              : response.status === 500
+                ? '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요'
+                : response.status === 503
+                  ? '서비스를 일시적으로 사용할 수 없습니다'
+                  : '식당 정보를 불러올 수 없습니다'
+            showToast(errorMessage, 'error')
+            setIsLoadingNearby(false)
             return
           }
 
@@ -639,6 +668,7 @@ export default function Home() {
           if (data.places.length === 0) {
             console.log('⚠️ [MapClick] No restaurants found nearby')
             showToast('근처에 식당이 없습니다', 'info')
+            setIsLoadingNearby(false)
             return
           }
 
@@ -667,13 +697,18 @@ export default function Home() {
             console.log(`✅ [MapClick] Auto-selecting nearest: ${places[0].place_name} (${places[0].distance}m away)`)
             handleMarkerClick(places[0])
           }
+          setIsLoadingNearby(false)
         } catch (error) {
           console.error('❌ [MapClick] Error:', error)
-          showToast('오류가 발생했습니다', 'error')
+          const errorMessage = error instanceof TypeError && error.message.includes('fetch')
+            ? '네트워크 연결을 확인해주세요'
+            : '오류가 발생했습니다. 다시 시도해주세요'
+          showToast(errorMessage, 'error')
+          setIsLoadingNearby(false)
         }
       })
     },
-    [enrichPlaceWithDbData, handleMarkerClick, showToast]
+    [enrichPlaceWithDbData, handleMarkerClick, showToast, clearViewportMarkers, createViewportMarkers, fetchRestaurantsInBounds]
   )
 
   const handleResultClick = useCallback(
@@ -757,6 +792,19 @@ export default function Home() {
     <KakaoMapProvider>
       <main className="relative h-dvh w-full overflow-hidden bg-zinc-950">
         <KakaoMap center={{ lat: 37.5665, lng: 126.978 }} level={5} className="h-full w-full" onMapReady={handleMapReady} onBoundsChanged={handleBoundsChanged} />
+
+        <MapInstructionHint />
+
+        {isLoadingNearby && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="rounded-2xl border border-zinc-800/50 bg-zinc-900/95 px-6 py-4 shadow-2xl backdrop-blur-xl">
+              <div className="flex items-center gap-3">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-600 border-t-orange-500" />
+                <span className="text-sm font-medium text-zinc-100">근처 식당 검색 중...</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         <header className="absolute inset-x-0 top-0 z-10 p-4 sm:p-6">
           <div className="mx-auto max-w-md">
