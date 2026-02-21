@@ -46,6 +46,21 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue
 }
 
+function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371e3
+  const φ1 = (lat1 * Math.PI) / 180
+  const φ2 = (lat2 * Math.PI) / 180
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180
+  const Δλ = ((lng2 - lng1) * Math.PI) / 180
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+
+  return R * c
+}
+
 export default function Home() {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
@@ -67,6 +82,7 @@ export default function Home() {
   const viewportMarkersRef = useRef<KakaoCustomOverlay[]>([])
   const viewportRestaurantsRef = useRef<SearchResult[]>([])
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const idleDebounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const { user, isLoading: isAuthLoading } = useAuth()
   const { showToast } = useToast()
@@ -583,9 +599,30 @@ export default function Home() {
 
   const handleBoundsChanged = useCallback(
     async (bounds: { sw: { lat: number; lng: number }; ne: { lat: number; lng: number } }) => {
-      console.log('🗺️ [BoundsChanged] Map moved (not fetching restaurants)')
+      if (idleDebounceTimerRef.current) {
+        clearTimeout(idleDebounceTimerRef.current)
+      }
+
+      idleDebounceTimerRef.current = setTimeout(async () => {
+        console.log('🗺️ [BoundsChanged] Map idle, fetching viewport restaurants...')
+        
+        try {
+          const newRestaurants = await fetchRestaurantsInBounds(bounds)
+          console.log(`✅ [BoundsChanged] Fetched ${newRestaurants.length} restaurants`)
+          
+          setViewportRestaurants(newRestaurants)
+          viewportRestaurantsRef.current = newRestaurants
+          
+          if (mapInstance) {
+            clearViewportMarkers()
+            createViewportMarkers(newRestaurants, mapInstance)
+          }
+        } catch (error) {
+          console.error('❌ [BoundsChanged] Error fetching restaurants:', error)
+        }
+      }, 100)
     },
-    []
+    [fetchRestaurantsInBounds, mapInstance, clearViewportMarkers, createViewportMarkers]
   )
 
   const handleMapReady = useCallback(
@@ -641,70 +678,35 @@ export default function Home() {
         }
 
         console.log('🖱️ [MapClick] Clicked at:', clickLat, clickLng, `| Zoom: ${zoomLevel} | Radius: ${searchRadius}m | Menu: ${showMenu}`)
-        console.log('🔍 [MapClick] Searching nearby restaurants...')
+        console.log('🔍 [MapClick] Filtering nearby restaurants from viewport data...')
 
-        setIsLoadingNearby(true)
         try {
-          const response = await fetch(
-            `/api/restaurants/nearby?x=${clickLng}&y=${clickLat}&radius=${searchRadius}`
-          )
+          const nearbyRestaurants = viewportRestaurantsRef.current
+            .map(restaurant => {
+              const distance = calculateDistance(clickLat, clickLng, restaurant.lat, restaurant.lng)
+              return { ...restaurant, distance: distance.toString() }
+            })
+            .filter(restaurant => parseFloat(restaurant.distance) <= searchRadius)
+            .sort((a, b) => parseFloat(a.distance) - parseFloat(b.distance))
 
-          if (!response.ok) {
-            console.error('❌ [MapClick] API error:', response.status)
-            const errorMessage = response.status === 429
-              ? 'API 요청 한도를 초과했습니다. 잠시 후 다시 시도해주세요'
-              : response.status === 500
-                ? '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요'
-                : response.status === 503
-                  ? '서비스를 일시적으로 사용할 수 없습니다'
-                  : '식당 정보를 불러올 수 없습니다'
-            showToast(errorMessage, 'error')
-            setIsLoadingNearby(false)
-            return
-          }
-
-          const data = await response.json()
-          
-          if (data.places.length === 0) {
+          if (nearbyRestaurants.length === 0) {
             console.log('⚠️ [MapClick] No restaurants found nearby')
             showToast('근처에 식당이 없습니다', 'info')
-            setIsLoadingNearby(false)
             return
           }
 
-          console.log(`📍 [MapClick] Found ${data.places.length} nearby restaurants`)
+          console.log(`📍 [MapClick] Found ${nearbyRestaurants.length} nearby restaurants`)
 
-          let places: SearchResult[] = data.places.map((place: KakaoPlace) => ({
-            ...place,
-            lat: parseFloat(place.y),
-            lng: parseFloat(place.x),
-          })).sort((a: SearchResult, b: SearchResult) => {
-            const distA = parseFloat(a.distance || '0')
-            const distB = parseFloat(b.distance || '0')
-            return distA - distB
-          })
-
-          const enrichedPlaces = await Promise.all(
-            places.map((place) => enrichPlaceWithDbData(place))
-          )
-
-          places = enrichedPlaces
-
-          if (showMenu && places.length > 1) {
-            console.log(`🔍 [MapClick] Showing disambiguation menu with ${places.length} options (sorted by distance)`)
-            setDisambiguationCandidates(places)
+          if (showMenu && nearbyRestaurants.length > 1) {
+            console.log(`🔍 [MapClick] Showing disambiguation menu with ${nearbyRestaurants.length} options (sorted by distance)`)
+            setDisambiguationCandidates(nearbyRestaurants)
           } else {
-            console.log(`✅ [MapClick] Auto-selecting nearest: ${places[0].place_name} (${places[0].distance}m away)`)
-            handleMarkerClick(places[0])
+            console.log(`✅ [MapClick] Auto-selecting nearest: ${nearbyRestaurants[0].place_name} (${nearbyRestaurants[0].distance}m away)`)
+            handleMarkerClick(nearbyRestaurants[0])
           }
-          setIsLoadingNearby(false)
         } catch (error) {
           console.error('❌ [MapClick] Error:', error)
-          const errorMessage = error instanceof TypeError && error.message.includes('fetch')
-            ? '네트워크 연결을 확인해주세요'
-            : '오류가 발생했습니다. 다시 시도해주세요'
-          showToast(errorMessage, 'error')
-          setIsLoadingNearby(false)
+          showToast('오류가 발생했습니다. 다시 시도해주세요', 'error')
         }
       })
     },
