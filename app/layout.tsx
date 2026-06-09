@@ -14,20 +14,20 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "맵찌주의보 | 내 주변 매운 맛집 찾기",
-  description: "내 주변 매운 맛집을 쉽게 찾아보세요. 매운 음식 전문 지도 서비스 맵찌주의보",
-  keywords: ["맵찌", "매운맛집", "매운음식", "맛집지도", "매운거", "spicy food", "restaurant map"],
-  authors: [{ name: "맵찌주의보" }],
-  creator: "맵찌주의보",
+  title: "맵찌도 | 내 주변 매운 맛집 찾기",
+  description: "내 주변 매운 맛집을 쉽게 찾아보세요. 매운 음식 전문 지도 서비스 맵찌도",
+  keywords: ["맵찌도", "mapjji", "매운맛집", "매운음식", "맛집지도", "매운거", "spicy food", "restaurant map"],
+  authors: [{ name: "맵찌도" }],
+  creator: "맵찌도",
   openGraph: {
-    title: "맵찌주의보 | 내 주변 매운 맛집 찾기",
+    title: "맵찌도 | 내 주변 매운 맛집 찾기",
     description: "내 주변 매운 맛집을 쉽게 찾아보세요",
     type: "website",
     locale: "ko_KR",
   },
   twitter: {
     card: "summary_large_image",
-    title: "맵찌주의보 | 내 주변 매운 맛집 찾기",
+    title: "맵찌도 | 내 주변 매운 맛집 찾기",
     description: "내 주변 매운 맛집을 쉽게 찾아보세요",
   },
 };

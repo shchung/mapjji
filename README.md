@@ -1,4 +1,4 @@
-# 맵찌주의보 🌶️
+# 맵찌도 (mapjji) 🌶️
 
 내 주변 매운 맛집을 찾아주는 웹 애플리케이션
 
@@ -58,7 +58,7 @@ vercel
 ## 프로젝트 구조
 
 ```
-maepjji-alert/
+mapjji/
 ├── app/                    # Next.js App Router
 │   ├── api/               # API Routes
 │   │   └── search/        # Kakao Local 검색 API
@@ -104,4 +104,4 @@ MIT
 
 ## 개발자
 
-맵찌주의보 팀
+맵찌도 팀

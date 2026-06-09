@@ -816,7 +816,7 @@ export default function Home() {
                   <span className="text-lg">🌶️</span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h1 className="truncate font-semibold tracking-tight text-zinc-50">맵찌주의보</h1>
+                  <h1 className="truncate font-semibold tracking-tight text-zinc-50">맵찌도</h1>
                   <p className="truncate text-xs text-zinc-400">내 주변 매운 맛집 찾기</p>
                 </div>
                 {user && (
