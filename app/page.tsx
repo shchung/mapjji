@@ -261,7 +261,7 @@ export default function Home() {
           return result
         })
 
-        const matchedCount = enrichedResults.filter(r => r.avg_spice_level !== undefined).length
+        const matchedCount = enrichedResults.filter((r: SearchResult) => r.avg_spice_level !== undefined).length
         console.log(`🎯 [FetchBounds] Matched ${matchedCount}/${allResults.length} restaurants`)
 
         return enrichedResults
