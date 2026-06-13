@@ -242,7 +242,7 @@ export default function Home() {
         }
 
         // Kakao 결과에 DB 데이터 매칭
-        const enrichedResults = allResults.map((result) => {
+        const enrichedResults = allResults.map((result: SearchResult) => {
           const name = 'place_name' in result ? result.place_name : ''
 
           // 이름으로 먼저 찾기
