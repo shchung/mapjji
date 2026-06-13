@@ -229,40 +229,40 @@ export default function Home() {
 
         console.log(`✅ [FetchBounds] Got ${allResults.length} restaurants`)
 
-        // DB 조회는 리뷰가 있는 것만
-        const enrichedResults = await Promise.all(
-          allResults.map(async (result: SearchResult) => {
-            const { lat, lng } = result
-            const roundedLat = Math.round(lat * 1e8) / 1e8
-            const roundedLng = Math.round(lng * 1e8) / 1e8
-            const name = 'place_name' in result ? result.place_name : ''
+        // 먼저 DB에서 리뷰 있는 모든 레스토랑 가져오기
+        const { data: restaurantsWithReviews } = await supabase
+          .from('restaurants')
+          .select('id, name, lat, lng, avg_spice_level')
+          .not('avg_spice_level', 'is', null)
 
-            const { data: restaurant } = await supabase
-              .from('restaurants')
-              .select('id, avg_spice_level')
-              .eq('name', name)
-              .eq('lat', roundedLat)
-              .eq('lng', roundedLng)
-              .limit(1)
-              .maybeSingle()
+        console.log(`📊 [FetchBounds] DB has ${restaurantsWithReviews?.length || 0} restaurants with reviews`)
 
-            if (restaurant && restaurant.avg_spice_level !== null) {
-              const { data: reviews } = await supabase
-                .from('reviews')
-                .select('id')
-                .eq('restaurant_id', restaurant.id)
+        if (!restaurantsWithReviews || restaurantsWithReviews.length === 0) {
+          return allResults
+        }
 
-              return {
-                ...result,
-                restaurant_id: restaurant.id,
-                avg_spice_level: restaurant.avg_spice_level,
-                review_count: reviews?.length || 0,
-              }
+        // Kakao 결과에 DB 데이터 매칭
+        const enrichedResults = allResults.map((result) => {
+          const name = 'place_name' in result ? result.place_name : ''
+
+          // 이름으로 먼저 찾기
+          const match = restaurantsWithReviews.find(r => r.name === name)
+
+          if (match && match.avg_spice_level !== null) {
+            console.log(`✅ [Match] Found: ${name} (level: ${match.avg_spice_level})`)
+            return {
+              ...result,
+              restaurant_id: match.id,
+              avg_spice_level: match.avg_spice_level,
+              review_count: 1, // 일단 1로 표시 (나중에 정확한 count 가져올 수 있음)
             }
+          }
 
-            return result
-          })
-        )
+          return result
+        })
+
+        const matchedCount = enrichedResults.filter(r => r.avg_spice_level !== undefined).length
+        console.log(`🎯 [FetchBounds] Matched ${matchedCount}/${allResults.length} restaurants`)
 
         return enrichedResults
       } catch (error) {
@@ -700,8 +700,13 @@ export default function Home() {
           viewportRestaurantsRef.current = newRestaurants
 
           if (mapInstance) {
-            clearViewportMarkers()
+            // 새 마커를 먼저 만들고
+            const oldMarkers = viewportMarkersRef.current
+            viewportMarkersRef.current = []
             createViewportMarkers(newRestaurants, mapInstance)
+
+            // 그 다음에 기존 마커 제거 (깜빡임 방지)
+            oldMarkers.forEach((overlay) => overlay.setMap(null))
           }
         } catch (error) {
           console.error('❌ [BoundsChanged] Error fetching restaurants:', error)
