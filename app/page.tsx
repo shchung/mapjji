@@ -231,7 +231,7 @@ export default function Home() {
 
         // DB 조회는 리뷰가 있는 것만
         const enrichedResults = await Promise.all(
-          allResults.map(async (result) => {
+          allResults.map(async (result: SearchResult) => {
             const { lat, lng } = result
             const roundedLat = Math.round(lat * 1e8) / 1e8
             const roundedLng = Math.round(lng * 1e8) / 1e8
